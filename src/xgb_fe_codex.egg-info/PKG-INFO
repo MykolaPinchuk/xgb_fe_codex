@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: xgb-fe-codex
+Version: 0.1.0
+Summary: Experiments comparing XGBoost on raw attributes vs oracle features
+Author: AutoGen
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.24
+Requires-Dist: pandas>=2.0
+Requires-Dist: scikit-learn>=1.3
+Requires-Dist: xgboost>=1.7
+Requires-Dist: optuna>=3.5
+Requires-Dist: PyYAML>=6.0
+Provides-Extra: tests
+Requires-Dist: pytest>=7.0; extra == "tests"
+Requires-Dist: pytest-cov>=4.0; extra == "tests"
+
+# XGB Feature Emulation Experiments
+
+This project studies how well XGBoost trained on raw attributes can recover the latent features that generate binary labels. Meta-Iteration 1 focuses on synthetic data across "tiers" of feature complexity, with two model arms per run:
+
+- **ATTR**: trains on raw attributes only.
+- **FE-Oracle**: trains on the ground-truth features used by the data-generating process.
+
+The initial milestone implements Tier 0, a sanity check where oracle features match a handful of raw attributes. Future tiers introduce increasingly compositional features (oblique linear, pairwise compositions, ratio-of-sums, etc.).
+
+See `IMPLEMENTATION.md` for the current scope and roadmap.
