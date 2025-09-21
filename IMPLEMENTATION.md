@@ -14,11 +14,11 @@
 - Labels derive from a linear logit over five informative attributes; the oracle feature matrix simply reuses those raw columns.
 - Report: `docs/tier0.md` (run `artifacts/20250921_131812/tier0/`).
 
-### Tier 1 (oblique linear, k ∈ {2,3,4})
+### Tier 1 (oblique linear, k ∈ {2,…,6})
 
-- Oracle features: 20 standardized linear blends, each combining `k` informative attributes with weights drawn from `{±2, ±1, ±0.5}`; coverage pass ensures every informative attribute appears at least once.
+- Oracle features: 20 standardized linear blends, each combining `k` informative attributes with weights drawn from `{±2, ±1, ±0.5}`; a coverage queue ensures every informative attribute appears at least once even for higher arities.
 - CLI flag `--k` selects the arity (default 3). Oracle labels follow the shared logistic recipe using those features.
-- Report: `docs/tier1.md` (run `artifacts/20250921_133826/tier1_k3/`).
+- Reports: `docs/tier1.md` for `k=3` (`artifacts/20250921_133826/tier1_k3/`) and `docs/tier1_k6.md` for the high-arity variant (`artifacts/20250921_135009/tier1_k6/`).
 
 ## Near-term roadmap
 

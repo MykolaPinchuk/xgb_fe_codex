@@ -6,7 +6,7 @@ from typing import Dict, List, Sequence
 import numpy as np
 import pandas as pd
 
-from .utils import ensure_unique_selection, sample_logistic_labels, standardize_columns
+from .utils import sample_logistic_labels, standardize_columns
 
 
 DEFAULT_WEIGHT_POOL = np.array([-2.0, -1.0, -0.5, 0.5, 1.0, 2.0])
@@ -42,8 +42,8 @@ def generate_tier1(
     config: Tier1Config,
     rng: np.random.Generator,
 ) -> Tier1Outputs:
-    if config.k < 2 or config.k > 4:
-        raise ValueError(f"Tier1 expects k in [2,4], received {config.k}")
+    if config.k < 2 or config.k > 6:
+        raise ValueError(f"Tier1 expects k in [2,6], received {config.k}")
     if len(informative_indices) < config.k:
         raise ValueError("Number of informative attributes must be >= k")
 
@@ -58,24 +58,30 @@ def generate_tier1(
     raw_features = np.zeros((n_rows, config.n_features), dtype=float)
 
     for feat_idx in range(config.n_features):
-        if coverage_queue:
-            anchor = coverage_queue.pop()
-            remaining_pool = [idx for idx in informative_indices if idx != anchor]
-            if k - 1 > 0:
-                extra = ensure_unique_selection(remaining_pool, rng, k - 1)
-                chosen_indices = np.concatenate(([anchor], extra))
-            else:
-                chosen_indices = np.array([anchor])
-        else:
-            chosen_indices = ensure_unique_selection(informative_indices, rng, k)
+        chosen_set = []
 
-        chosen_indices = np.unique(chosen_indices)
-        # In rare cases, coverage step could reduce size; top up randomly.
-        while chosen_indices.size < k:
-            candidate = rng.choice(informative_indices)
-            if candidate not in chosen_indices:
-                chosen_indices = np.append(chosen_indices, candidate)
-        chosen_indices.sort()
+        def pop_coverage() -> int | None:
+            while coverage_queue:
+                candidate = coverage_queue.pop()
+                if candidate not in chosen_set:
+                    return candidate
+            return None
+
+        anchor = pop_coverage()
+        if anchor is None:
+            anchor = int(rng.choice(informative_indices))
+        chosen_set.append(anchor)
+
+        while len(chosen_set) < k:
+            candidate = pop_coverage()
+            if candidate is not None:
+                chosen_set.append(candidate)
+                continue
+            candidate = int(rng.choice(informative_indices))
+            if candidate not in chosen_set:
+                chosen_set.append(candidate)
+
+        chosen_indices = np.array(sorted(chosen_set))
 
         chosen_cols = [X.columns[i] for i in chosen_indices]
         weights = _draw_weight_vector(rng, config.weight_pool, size=chosen_indices.size)
