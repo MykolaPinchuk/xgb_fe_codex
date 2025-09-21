@@ -12,6 +12,7 @@ import yaml
 
 from dgp.attributes import AttributeSpec, generate_attributes
 from dgp.features_tier0 import Tier0Config, generate_tier0
+from dgp.features_t1 import Tier1Config, generate_tier1
 from train.run_arm import ArmConfig, run_training_arm
 from train.split import SplitConfig, stratified_split
 
@@ -23,9 +24,10 @@ def load_config(config_path: Path) -> Dict[str, object]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run XGB feature emulation experiment")
-    parser.add_argument("--tier", type=str, default="tier0", choices=["tier0"], help="Tier to run")
+    parser.add_argument("--tier", type=str, default="tier0", choices=["tier0", "tier1"], help="Tier to run")
     parser.add_argument("--seed", type=int, default=None, help="Random seed override")
     parser.add_argument("--config", type=Path, default=Path("config/defaults.yaml"), help="Config file path")
+    parser.add_argument("--k", type=int, default=None, help="Feature arity for applicable tiers (e.g., tier1)")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -36,8 +38,6 @@ def main() -> None:
     total_timeout = float(config.get("optuna", {}).get("timeout_seconds", 300))
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = Path("artifacts") / timestamp / args.tier
-    run_dir.mkdir(parents=True, exist_ok=True)
 
     attr_spec = AttributeSpec(
         n_rows=int(config.get("n_rows", 10000)),
@@ -47,19 +47,56 @@ def main() -> None:
     )
     X, metadata, rng = generate_attributes(attr_spec)
 
-    tier0_cfg = Tier0Config(
-        positive_rate=float(config.get("positive_rate", 0.1)),
-        sigma_logit=float(config.get("sigma_logit", 0.5)),
-    )
-    tier0_outputs = generate_tier0(X, metadata.informative_indices, tier0_cfg, rng)
+    positive_rate = float(config.get("positive_rate", 0.1))
+    sigma_logit = float(config.get("sigma_logit", 0.5))
 
-    y = tier0_outputs.labels
+    if args.tier == "tier0":
+        tier0_cfg = Tier0Config(
+            positive_rate=positive_rate,
+            sigma_logit=sigma_logit,
+            n_label_attrs=int(config.get("n_label_attrs_tier0", 5)),
+        )
+        tier_outputs = generate_tier0(X, metadata.informative_indices, tier0_cfg, rng)
+        oracle_features = tier_outputs.features
+        tier_details = {
+            "selected_columns": tier_outputs.selected_columns,
+            "weights": tier_outputs.weights,
+            "intercept": tier_outputs.intercept,
+        }
+        run_name = args.tier
+    elif args.tier == "tier1":
+        k_value = args.k if args.k is not None else 3
+        n_features_cfg = config.get("n_true_features", {})
+        n_features = int(n_features_cfg.get("tier1", 20))
+        tier1_cfg = Tier1Config(
+            positive_rate=positive_rate,
+            sigma_logit=sigma_logit,
+            k=int(k_value),
+            n_features=n_features,
+        )
+        tier_outputs = generate_tier1(X, metadata.informative_indices, tier1_cfg, rng)
+        oracle_features = tier_outputs.features
+        tier_details = {
+            "k": tier1_cfg.k,
+            "n_features": tier1_cfg.n_features,
+            "feature_defs": tier_outputs.feature_defs,
+            "betas": tier_outputs.betas,
+            "intercept": tier_outputs.intercept,
+            "attribute_usage": {k: int(v) for k, v in tier_outputs.attribute_usage.items()},
+        }
+        run_name = f"{args.tier}_k{tier1_cfg.k}"
+    else:
+        raise ValueError(f"Unsupported tier: {args.tier}")
+
+    run_dir = Path("artifacts") / timestamp / run_name
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    y = tier_outputs.labels
     y.index = X.index
 
     split_cfg = SplitConfig(val_frac=float(config.get("val_frac", 0.2)), seed=seed)
     X_train_attr, X_val_attr, y_train, y_val, train_idx, val_idx = stratified_split(X, y, split_cfg)
 
-    oracle_features = tier0_outputs.features
     oracle_train = oracle_features.iloc[train_idx]
     oracle_val = oracle_features.iloc[val_idx]
 
@@ -68,8 +105,9 @@ def main() -> None:
 
     summary = {
         "config": config,
-        "selected_columns": tier0_outputs.selected_columns,
-        "weights": tier0_outputs.weights,
+        "tier": args.tier,
+        "run_name": run_name,
+        "tier_details": tier_details,
     }
     (run_dir / "config_used.json").write_text(json.dumps(summary, indent=2))
 

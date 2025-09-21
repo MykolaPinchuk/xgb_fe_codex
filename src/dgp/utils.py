@@ -33,3 +33,24 @@ def standardize_columns(matrix: np.ndarray) -> np.ndarray:
 
 def ensure_unique_selection(pool: Sequence[int], rng: np.random.Generator, k: int) -> np.ndarray:
     return rng.choice(pool, size=k, replace=False)
+
+
+def generate_noisy_logits(logits: np.ndarray, sigma: float, rng: np.random.Generator) -> np.ndarray:
+    if sigma <= 0:
+        return logits
+    noise = rng.normal(0.0, sigma, size=logits.shape[0])
+    return logits + noise
+
+
+def sample_logistic_labels(
+    logits: np.ndarray,
+    positive_rate: float,
+    sigma: float,
+    rng: np.random.Generator,
+) -> tuple[np.ndarray, float, np.ndarray]:
+    noisy_logits = generate_noisy_logits(logits, sigma, rng)
+    intercept = find_intercept_for_target_rate(noisy_logits, positive_rate)
+    probabilities = sigmoid(noisy_logits + intercept)
+    draws = rng.uniform(0.0, 1.0, size=probabilities.shape[0])
+    labels = (probabilities > draws).astype(int)
+    return labels, intercept, probabilities

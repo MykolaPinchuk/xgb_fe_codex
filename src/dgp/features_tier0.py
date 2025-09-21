@@ -6,7 +6,7 @@ from typing import Dict, List
 import numpy as np
 import pandas as pd
 
-from .utils import find_intercept_for_target_rate
+from .utils import sample_logistic_labels
 
 
 @dataclass
@@ -22,6 +22,7 @@ class Tier0Outputs:
     labels: pd.Series
     selected_columns: List[str]
     weights: List[float]
+    intercept: float
 
 
 def generate_tier0(X: pd.DataFrame, informative_indices: List[int], config: Tier0Config, rng: np.random.Generator) -> Tier0Outputs:
@@ -35,13 +36,18 @@ def generate_tier0(X: pd.DataFrame, informative_indices: List[int], config: Tier
 
     feature_matrix = X[chosen_cols].to_numpy()
     logits = feature_matrix @ weights
-    jitter = rng.normal(0.0, config.sigma_logit, size=logits.shape[0])
-    logits_with_noise = logits + jitter
-
-    intercept = find_intercept_for_target_rate(logits_with_noise, config.positive_rate)
-    probabilities = 1.0 / (1.0 + np.exp(-(logits_with_noise + intercept)))
-    draws = rng.uniform(0.0, 1.0, size=probabilities.shape[0])
-    labels = (probabilities > draws).astype(int)
+    labels, intercept, _ = sample_logistic_labels(
+        logits=logits,
+        positive_rate=config.positive_rate,
+        sigma=config.sigma_logit,
+        rng=rng,
+    )
 
     features_df = X[chosen_cols].copy()
-    return Tier0Outputs(features=features_df, labels=pd.Series(labels, name="y"), selected_columns=chosen_cols, weights=weights.tolist())
+    return Tier0Outputs(
+        features=features_df,
+        labels=pd.Series(labels, name="y"),
+        selected_columns=chosen_cols,
+        weights=weights.tolist(),
+        intercept=float(intercept),
+    )

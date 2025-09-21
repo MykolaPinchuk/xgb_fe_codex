@@ -22,6 +22,7 @@ def test_tier0_positive_rate_close():
 
     positive_rate = outputs.labels.mean()
     assert abs(positive_rate - 0.1) < 0.02
+    assert isinstance(float(outputs.intercept), float)
 
 
 def test_tier0_selected_columns_subset():
