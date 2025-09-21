@@ -5,6 +5,7 @@ n_informative: 24
 n_label_attrs_tier0: 5
 n_true_features:
   tier1: 20
+  tier2: 20
 positive_rate: 0.10
 sigma_logit: 0.5
 val_frac: 0.20

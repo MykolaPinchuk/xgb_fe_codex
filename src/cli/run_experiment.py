@@ -13,6 +13,7 @@ import yaml
 from dgp.attributes import AttributeSpec, generate_attributes
 from dgp.features_tier0 import Tier0Config, generate_tier0
 from dgp.features_t1 import Tier1Config, generate_tier1
+from dgp.features_t2 import Tier2Config, generate_tier2
 from train.run_arm import ArmConfig, run_training_arm
 from train.split import SplitConfig, stratified_split
 
@@ -24,10 +25,11 @@ def load_config(config_path: Path) -> Dict[str, object]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run XGB feature emulation experiment")
-    parser.add_argument("--tier", type=str, default="tier0", choices=["tier0", "tier1"], help="Tier to run")
+    parser.add_argument("--tier", type=str, default="tier0", choices=["tier0", "tier1", "tier2"], help="Tier to run")
     parser.add_argument("--seed", type=int, default=None, help="Random seed override")
     parser.add_argument("--config", type=Path, default=Path("config/defaults.yaml"), help="Config file path")
     parser.add_argument("--k", type=int, default=None, help="Feature arity for applicable tiers (e.g., tier1)")
+    parser.add_argument("--spec", type=str, default=None, help="Tier-specific spec (e.g., product for tier2)")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -85,6 +87,32 @@ def main() -> None:
             "attribute_usage": {k: int(v) for k, v in tier_outputs.attribute_usage.items()},
         }
         run_name = f"{args.tier}_k{tier1_cfg.k}"
+    elif args.tier == "tier2":
+        spec_arg = (args.spec or "product").lower()
+        supported_specs = {"product", "ratio"}
+        if spec_arg not in supported_specs:
+            raise ValueError(f"Unsupported Tier2 spec '{spec_arg}'. Supported: {sorted(supported_specs)}")
+
+        n_features_cfg = config.get("n_true_features", {})
+        n_features = int(n_features_cfg.get("tier2", 20))
+        tier2_cfg = Tier2Config(
+            positive_rate=positive_rate,
+            sigma_logit=sigma_logit,
+            n_features=n_features,
+            spec=spec_arg,
+            positive_only_indices=metadata.positive_only_indices,
+        )
+        tier_outputs = generate_tier2(X, metadata.informative_indices, tier2_cfg, rng)
+        oracle_features = tier_outputs.features
+        tier_details = {
+            "spec": spec_arg,
+            "n_features": tier2_cfg.n_features,
+            "feature_defs": tier_outputs.feature_defs,
+            "betas": tier_outputs.betas,
+            "intercept": tier_outputs.intercept,
+            "attribute_usage": {k: int(v) for k, v in tier_outputs.attribute_usage.items()},
+        }
+        run_name = f"{args.tier}_{spec_arg}"
     else:
         raise ValueError(f"Unsupported tier: {args.tier}")
 
