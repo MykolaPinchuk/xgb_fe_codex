@@ -5,7 +5,7 @@
 ## Data & Setup
 - Sample size: 10,000 rows, 60 numeric attributes.
 - Informative subset: 24 attributes, with 12 constrained positive (exp-transformed).
-- Tier 0 features: labels generated from a linear logit over 5 informative columns; oracle features reuse these raw columns.
+- Feature equation: $z_m = x_{i_m}$ (oracle reuses the selected raw columns) and the logit is $f = \sum_{m} \beta_m z_m$ before intercept calibration.
 - Target prevalence: 10% positives via intercept search (`σ=0.5` jitter).
 
 Selected columns: `['x4', 'x18', 'x23', 'x11', 'x5']`

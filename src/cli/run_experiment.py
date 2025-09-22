@@ -14,6 +14,7 @@ from dgp.attributes import AttributeSpec, generate_attributes
 from dgp.features_tier0 import Tier0Config, generate_tier0
 from dgp.features_t1 import Tier1Config, generate_tier1
 from dgp.features_t2 import Tier2Config, generate_tier2
+from dgp.features_t3 import Tier3Config, generate_tier3
 from train.run_arm import ArmConfig, run_training_arm
 from train.split import SplitConfig, stratified_split
 
@@ -25,7 +26,13 @@ def load_config(config_path: Path) -> Dict[str, object]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run XGB feature emulation experiment")
-    parser.add_argument("--tier", type=str, default="tier0", choices=["tier0", "tier1", "tier2"], help="Tier to run")
+    parser.add_argument(
+        "--tier",
+        type=str,
+        default="tier0",
+        choices=["tier0", "tier1", "tier2", "tier3"],
+        help="Tier to run",
+    )
     parser.add_argument("--seed", type=int, default=None, help="Random seed override")
     parser.add_argument("--config", type=Path, default=Path("config/defaults.yaml"), help="Config file path")
     parser.add_argument("--k", type=int, default=None, help="Feature arity for applicable tiers (e.g., tier1)")
@@ -113,6 +120,37 @@ def main() -> None:
             "attribute_usage": {k: int(v) for k, v in tier_outputs.attribute_usage.items()},
         }
         run_name = f"{args.tier}_{spec_arg}"
+    elif args.tier == "tier3":
+        spec_arg = (args.spec or "ratioofsum").lower()
+        supported_specs = {"ratioofsum", "sumproduct"}
+        if spec_arg not in supported_specs:
+            raise ValueError(f"Unsupported Tier3 spec '{spec_arg}'. Supported: {sorted(supported_specs)}")
+
+        k_value = args.k if args.k is not None else 3
+        if k_value not in {3, 4}:
+            raise ValueError("Tier3 ratio-of-sums expects k in {3, 4}")
+
+        n_features_cfg = config.get("n_true_features", {})
+        n_features = int(n_features_cfg.get("tier3", 20))
+        tier3_cfg = Tier3Config(
+            positive_rate=positive_rate,
+            sigma_logit=sigma_logit,
+            k=int(k_value),
+            n_features=n_features,
+            spec=spec_arg,
+        )
+        tier_outputs = generate_tier3(X, metadata.informative_indices, tier3_cfg, rng)
+        oracle_features = tier_outputs.features
+        tier_details = {
+            "spec": spec_arg,
+            "k": tier3_cfg.k,
+            "n_features": tier3_cfg.n_features,
+            "feature_defs": tier_outputs.feature_defs,
+            "betas": tier_outputs.betas,
+            "intercept": tier_outputs.intercept,
+            "attribute_usage": {k: int(v) for k, v in tier_outputs.attribute_usage.items()},
+        }
+        run_name = f"{args.tier}_{spec_arg}_k{tier3_cfg.k}"
     else:
         raise ValueError(f"Unsupported tier: {args.tier}")
 

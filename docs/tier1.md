@@ -5,7 +5,7 @@
 ## Data & Feature Construction
 - Same attribute backbone as Tier 0 (10,000 rows by default; run sampled at full scale).
 - Informative pool: 24 attributes, evenly reused via coverage pass (no unused informative columns in this run).
-- Each of the 20 oracle features is a linear blend of exactly 3 informative attributes with weights drawn from `{-2, -1, -0.5, 0.5, 1, 2}` and standardized to zero mean / unit variance.
+- Feature equation: $z_m = \sum_{j=1}^{3} w_{m,j} \cdot x_{i_{m,j}}$ with $w_{m,j} \in \{-2, -1, -0.5, 0.5, 1, 2\}$, standardized to zero mean / unit variance.
 - Logistic layer: coefficients sampled `Uniform(0.5, 1.5)` with random signs, intercept solved to yield 10 % positives.
 
 ## Training Configuration

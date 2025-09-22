@@ -4,7 +4,7 @@
 
 ## Data & Feature Construction
 - Same attribute design as earlier tiers (10,000 rows, 60 numeric columns, 24 informative with half positive-only).
-- Oracle features: 20 standardized ratios of informative attributes. Denominators draw preferentially from the coverage queue; if an attribute is not guaranteed positive it is wrapped in `abs` before adding `ε = 1e-3` for numerical safety. Coverage ensures every informative attribute appears as numerator or denominator at least once.
+- Feature equation: $z_m = \dfrac{x_{i_m}}{|x_{j_m}| + \varepsilon}$ (with $\varepsilon = 10^{-3}$), falling back to raw denominators when $x_{j_m}$ is from the positive-only subset. Coverage ensures every informative attribute appears as numerator or denominator at least once.
 - Logistic head samples coefficients from `Uniform(0.5, 1.5)` with random signs; intercept chosen for a 10 % positive rate given `σ=0.5` jitter.
 
 ## Training Configuration

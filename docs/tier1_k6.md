@@ -4,8 +4,8 @@
 
 ## Data & Feature Construction
 - Attribute generator identical to Tiers 0–1 (10,000 rows, 60 columns, 24 informative with 12 positive-only).
-- Oracle features: 20 standardized linear blends, each spanning 6 distinct informative attributes (coverage queue guarantees every informative attribute appears ≥1×).
-- Weights sampled from `{±2, ±1, ±0.5}`; coefficients for the logistic head drawn `Uniform(0.5, 1.5)` with random signs, followed by intercept calibration to 10 % positives (`σ=0.5`).
+- Feature equation: $z_m = \sum_{j=1}^{6} w_{m,j} \cdot x_{i_{m,j}}$ with $w_{m,j} \in \{-2, -1, -0.5, 0.5, 1, 2\}$ and each feature using 6 distinct informative attributes (coverage queue guarantees every informative attribute appears ≥1×).
+- Logistic head coefficients drawn `Uniform(0.5, 1.5)` with random signs, followed by intercept calibration to 10 % positives (`σ=0.5`).
 
 ## Training Configuration
 - Optuna TPE with 10 trials per arm, wrapped in a 300 s global budget (observed runtime ≈4.7 minutes).

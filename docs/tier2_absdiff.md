@@ -4,7 +4,7 @@
 
 ## Data & Feature Construction
 - Base attributes: 10,000 rows, 60 numeric columns, 24 informative (12 positive-only) as in earlier tiers.
-- Oracle features: 20 standardized absolute differences between informative attribute pairs. Coverage queue ensures every informative attribute appears at least once across the feature set.
+- Feature equation: $z_m = |x_{i_m} - x_{j_m}|$ with $(i_m, j_m)$ drawn from the informative pool and standardized post-hoc. Coverage queue ensures every informative attribute appears at least once across the feature set.
 - Logistic coefficients sampled `Uniform(0.5, 1.5)` with random signs; intercept solved for a 10 % positive rate given `σ=0.5` jitter.
 
 ## Training Configuration

@@ -65,16 +65,16 @@ CLI examples:
 
 ```bash
 # Tier 1, k=3 (oblique linear features)
-python -m cli.run_experiment --tier t1 --k 3 --seed 123
+python -m cli.run_experiment --tier tier1 --k 3 --seed 123
 
 # Tier 2, ratios (k=2)
-python -m cli.run_experiment --tier t2 --spec ratio --seed 123
+python -m cli.run_experiment --tier tier2 --spec ratio --seed 123
 
 # Tier 3, k=4, sum-product
-python -m cli.run_experiment --tier t3 --k 4 --spec sumprod --seed 123
+python -m cli.run_experiment --tier tier3 --k 4 --spec sumproduct --seed 123
 
 # Tier 4, k=6, ratio-of-sums (high arity)
-python -m cli.run_experiment --tier t4 --k 6 --spec ratioofsum --seed 123
+python -m cli.run_experiment --tier tier4 --k 6 --spec ratioofsum --seed 123
 ```
 
 Each run produces two arms (ATTR, FE-Oracle) and writes metrics + params to `artifacts/<date_time>/<tier>_<spec>_k<k>/`.
@@ -83,9 +83,8 @@ Each run produces two arms (ATTR, FE-Oracle) and writes metrics + params to `art
 
 - Total attributes: `d = 60`.
 - 24 informative-eligible attributes (pool used by true features):
-  - Correlated Gaussian blocks (e.g., block size 6 with intra-block ρ≈0.4).
-  - Mixed scales: some shifted/scaled.
-  - 12 of the 24 are constrained to be positive (lognormal-ish via `exp(0.5 * Z)`); used for denominators.
+  - (Meta-Iteration 1 implementation) iid Gaussian draws with half of the informative set exponentiated to enforce positivity.
+  - (Deferred to Meta-Iteration 2) correlated Gaussian blocks (e.g., block size 6 with intra-block ρ≈0.4) and mixed scales.
 - 36 distractor attributes: independent Gaussian / mild heavy-tail mix.
 
 Return `X` as a `pandas.DataFrame` with columns `x0..x59` and a metadata structure indicating which indices are positive-only.
@@ -206,4 +205,3 @@ Directory layout: `artifacts/<YYYYmmdd_HHMMSS>/<tier>_<spec>_k<k>/`
 - Introduce a `FE-Generic` arm (a blind composite feature kit) and compare ATTR vs FE-Generic vs FE-Oracle.
 - Add CV and depth sweeps to study capacity vs engineered features.
 - Extend to later tiers (quadratic/distance, hinges, logic-like).
-

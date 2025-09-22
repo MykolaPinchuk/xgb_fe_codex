@@ -4,7 +4,7 @@
 
 ## Data & Feature Construction
 - Attribute generator unchanged (10,000 rows, 60 columns, 24 informative inputs with 12 positive-only).
-- Oracle features: 20 standardized pairwise extrema. Each feature alternates between `min(x_i, x_j)` and `max(x_i, x_j)`, with a coverage queue guaranteeing every informative attribute appears ≥1× across the set.
+- Feature equations alternate between $z_{2m} = \min(x_{i_m}, x_{j_m})$ and $z_{2m+1} = \max(x_{i_m}, x_{j_m})$, each standardized after construction; a coverage queue guarantees every informative attribute appears ≥1× across the set.
 - Logistic head samples coefficients from `Uniform(0.5, 1.5)` with random signs; intercept solved for 10 % prevalence with `σ=0.5` Gaussian jitter.
 
 ## Training Configuration

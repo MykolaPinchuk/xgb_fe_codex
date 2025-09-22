@@ -1,13 +1,14 @@
 # Implementation Notes
 
-## Current scope (Tiers 0–1)
+## Current scope (Tiers 0–3)
 
 ### Shared setup
 
-- Attribute generator returns 60 numeric columns (`x0`–`x59`) with 24 informative-eligible attributes (12 positive-only via exp transform) and 36 distractors.
+- Attribute generator returns 60 numeric columns (`x0`–`x59`) with 24 informative-eligible attributes (12 positive-only via exp transform) and 36 distractors. A richer correlated/block-structured generator is planned but explicitly deferred to Meta-Iteration 2.
 - Logistic label builder samples coefficients `β ~ U(0.5, 1.5)` with random signs, injects Gaussian jitter (`σ=0.5` by default), and solves for an intercept hitting ≈10% positives.
 - CLI (`python -m cli.run_experiment --tier ...`) orchestrates Tier selection, Optuna-driven XGBoost training (10 trials per arm, global 300 s budget), and artifact logging under `artifacts/<timestamp>/<tier_run>/`.
 - XGBoost runs with `tree_method="hist"`, `max_depth=6`, `n_estimators=1000`, `early_stopping_rounds=100`, and `n_jobs=-1`.
+- Summary helper: `python -m cli.summarize_runs --root artifacts --latest-only` prints a consolidated metrics table (see README for details).
 
 ### Tier 0
 
@@ -28,6 +29,13 @@
 - Min/Max: 20 standardized extrema alternating between `min` and `max` features while maintaining coverage.
 - CLI flag `--spec` selects the template (`product`, `ratio`, `absdiff`, `minmax`).
 - Reports: `docs/tier2_product.md` (`artifacts/20250921_135908/tier2_product/`), `docs/tier2_ratio.md` (`artifacts/20250921_140729/tier2_ratio/`), `docs/tier2_absdiff.md` (`artifacts/20250921_141419/tier2_absdiff/`), `docs/tier2_minmax.md` (`artifacts/20250921_143224/tier2_minmax/`).
+
+### Tier 3 (multi-variate compositions, k ∈ {3,4})
+
+- Ratio-of-sums: features take the form $(\sum a_i x_i) / (\sum b_j |x_j| + \varepsilon)$ with numerator size 1–2 and denominator size 2–3 (total arity 3 or 4). Coverage queues still enforce that every informative attribute appears in at least one numerator or denominator.
+- Sum-product mixes: features follow $(\sum a_i x_i) \times x_k$ or $(\sum a_i x_i) \times (\sum c_j x_j)$, keeping total arity at 3–4 while alternating between single and multi-variate factors.
+- CLI usage: `python -m cli.run_experiment --tier tier3 --spec ratioofsum --k 4` or `--spec sumproduct --k 4` (default `k=3`).
+- Reports: `docs/tier3_ratioofsum.md` (`artifacts/20250921_182613/tier3_ratioofsum_k4/`), `docs/tier3_sumproduct.md` (`artifacts/20250921_183013/tier3_sumproduct_k4/`).
 
 ## Near-term roadmap
 

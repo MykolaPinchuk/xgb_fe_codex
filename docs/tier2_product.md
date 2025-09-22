@@ -4,7 +4,7 @@
 
 ## Data & Feature Construction
 - Attribute generator matches earlier tiers (10,000 rows, 60 numeric columns, 24 informative candidates with 12 positive-only).
-- Oracle features: 20 standardized pairwise products of informative attributes. A coverage queue ensures every informative attribute appears in ≥1 product despite the pairwise restriction.
+- Feature equation: $z_m = x_{i_m} \cdot x_{j_m}$ with $(i_m, j_m)$ drawn from the informative pool and standardized to zero mean / unit variance. A coverage queue ensures every informative attribute appears in ≥1 product despite the pairwise restriction.
 - Logistic head uses coefficients drawn `Uniform(0.5, 1.5)` with random signs; intercept solved for a 10 % positive rate with Gaussian jitter (`σ=0.5`).
 
 ## Training Configuration
