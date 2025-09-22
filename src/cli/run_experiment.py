@@ -15,6 +15,7 @@ from dgp.features_tier0 import Tier0Config, generate_tier0
 from dgp.features_t1 import Tier1Config, generate_tier1
 from dgp.features_t2 import Tier2Config, generate_tier2
 from dgp.features_t3 import Tier3Config, generate_tier3
+from dgp.features_t4 import Tier4Config, generate_tier4
 from train.run_arm import ArmConfig, run_training_arm
 from train.split import SplitConfig, stratified_split
 
@@ -30,7 +31,7 @@ def main() -> None:
         "--tier",
         type=str,
         default="tier0",
-        choices=["tier0", "tier1", "tier2", "tier3"],
+        choices=["tier0", "tier1", "tier2", "tier3", "tier4"],
         help="Tier to run",
     )
     parser.add_argument("--seed", type=int, default=None, help="Random seed override")
@@ -151,6 +152,37 @@ def main() -> None:
             "attribute_usage": {k: int(v) for k, v in tier_outputs.attribute_usage.items()},
         }
         run_name = f"{args.tier}_{spec_arg}_k{tier3_cfg.k}"
+    elif args.tier == "tier4":
+        spec_arg = (args.spec or "ratioofsum").lower()
+        supported_specs = {"ratioofsum", "sumproduct"}
+        if spec_arg not in supported_specs:
+            raise ValueError(f"Unsupported Tier4 spec '{spec_arg}'. Supported: {sorted(supported_specs)}")
+
+        k_value = args.k if args.k is not None else 5
+        if k_value not in {5, 6}:
+            raise ValueError("Tier4 expects k in {5, 6}")
+
+        n_features_cfg = config.get("n_true_features", {})
+        n_features = int(n_features_cfg.get("tier4", 15))
+        tier4_cfg = Tier4Config(
+            positive_rate=positive_rate,
+            sigma_logit=sigma_logit,
+            k=int(k_value),
+            n_features=n_features,
+            spec=spec_arg,
+        )
+        tier_outputs = generate_tier4(X, metadata.informative_indices, tier4_cfg, rng)
+        oracle_features = tier_outputs.features
+        tier_details = {
+            "spec": spec_arg,
+            "k": tier4_cfg.k,
+            "n_features": tier4_cfg.n_features,
+            "feature_defs": tier_outputs.feature_defs,
+            "betas": tier_outputs.betas,
+            "intercept": tier_outputs.intercept,
+            "attribute_usage": {k: int(v) for k, v in tier_outputs.attribute_usage.items()},
+        }
+        run_name = f"{args.tier}_{spec_arg}_k{tier4_cfg.k}"
     else:
         raise ValueError(f"Unsupported tier: {args.tier}")
 

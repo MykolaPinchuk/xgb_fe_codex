@@ -37,6 +37,13 @@
 - CLI usage: `python -m cli.run_experiment --tier tier3 --spec ratioofsum --k 4` or `--spec sumproduct --k 4` (default `k=3`).
 - Reports: `docs/tier3_ratioofsum.md` (`artifacts/20250921_182613/tier3_ratioofsum_k4/`), `docs/tier3_sumproduct.md` (`artifacts/20250921_183013/tier3_sumproduct_k4/`).
 
+### Tier 4 (high-arity compositions, k ∈ {5,6})
+
+- Ratio-of-sums: numerator groups of size 2–3 divided by absolute-value denominators covering the remaining attributes (total arity 5 or 6) with `ε = 10^{-3}` for stability.
+- Sum-product mixes: combinations such as $(\sum a_i x_i) \times x_k$ (with large left sums) or $(\sum a_i x_i) \times (\sum c_j x_j)$ where each factor spans ≥2 informative attributes.
+- CLI usage: `python -m cli.run_experiment --tier tier4 --spec ratioofsum --k 6` or `--spec sumproduct --k 6` (default `k=5`).
+- Reports: `docs/tier4_ratioofsum.md` (`artifacts/20250921_183528/tier4_ratioofsum_k6/`), `docs/tier4_sumproduct.md` (`artifacts/20250921_183727/tier4_sumproduct_k6/`).
+
 ## Near-term roadmap
 
 1. Flesh out generators for higher tiers (oblique linear, pairwise compositions, etc.).
