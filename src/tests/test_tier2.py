@@ -66,3 +66,41 @@ def test_tier2_ratio_features():
 
     positive_rate = outputs.labels.mean()
     assert abs(positive_rate - cfg.positive_rate) < 0.02
+
+
+def test_tier2_absdiff_features():
+    spec = AttributeSpec(n_rows=1800, n_attrs=50, n_informative=20, seed=44)
+    X, metadata, rng = generate_attributes(spec)
+    cfg = Tier2Config(positive_rate=0.1, sigma_logit=0.4, n_features=18, spec="absdiff")
+
+    outputs = generate_tier2(X, metadata.informative_indices, cfg, rng)
+
+    assert outputs.features.shape == (spec.n_rows, cfg.n_features)
+    assert np.allclose(outputs.features.mean().to_numpy(), 0.0, atol=1e-6)
+    assert np.allclose(outputs.features.std(ddof=0).to_numpy(), 1.0, atol=1e-6)
+
+    for feature_def in outputs.feature_defs:
+        assert feature_def.get("type") == "absdiff"
+        assert len(feature_def.get("cols", [])) == 2
+
+    assert all(count >= 1 for count in outputs.attribute_usage.values())
+    assert abs(outputs.labels.mean() - cfg.positive_rate) < 0.02
+
+
+def test_tier2_minmax_features():
+    spec = AttributeSpec(n_rows=1600, n_attrs=48, n_informative=18, seed=55)
+    X, metadata, rng = generate_attributes(spec)
+    cfg = Tier2Config(positive_rate=0.1, sigma_logit=0.45, n_features=20, spec="minmax")
+
+    outputs = generate_tier2(X, metadata.informative_indices, cfg, rng)
+
+    assert outputs.features.shape == (spec.n_rows, cfg.n_features)
+    assert np.allclose(outputs.features.mean().to_numpy(), 0.0, atol=1e-6)
+    assert np.allclose(outputs.features.std(ddof=0).to_numpy(), 1.0, atol=1e-6)
+
+    for feature_def in outputs.feature_defs:
+        assert feature_def.get("type") in {"min", "max"}
+        assert len(feature_def.get("cols", [])) == 2
+
+    assert all(count >= 1 for count in outputs.attribute_usage.values())
+    assert abs(outputs.labels.mean() - cfg.positive_rate) < 0.02

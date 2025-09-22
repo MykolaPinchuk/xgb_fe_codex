@@ -20,12 +20,14 @@
 - CLI flag `--k` selects the arity (default 3). Oracle labels follow the shared logistic recipe using those features.
 - Reports: `docs/tier1.md` for `k=3` (`artifacts/20250921_133826/tier1_k3/`) and `docs/tier1_k6.md` for the high-arity variant (`artifacts/20250921_135009/tier1_k6/`).
 
-### Tier 2 (pairwise compositional — products & ratios)
+### Tier 2 (pairwise compositional — products, ratios, abs-diff, min/max)
 
 - Products: 20 standardized pairwise products with coverage ensuring each informative attribute appears at least once.
-- Ratios: 20 standardized ratios with denominator safety (`abs` + `ε`) and the same coverage guarantee.
-- CLI flag `--spec` selects the template (`product` default, `ratio` available now; abs-diff/min/max upcoming).
-- Reports: `docs/tier2_product.md` (`artifacts/20250921_135908/tier2_product/`) and `docs/tier2_ratio.md` (`artifacts/20250921_140729/tier2_ratio/`).
+- Ratios: 20 standardized ratios with denominator safety (`abs` + `ε`).
+- Abs-diff: 20 standardized absolute differences capturing distance-like signals.
+- Min/Max: 20 standardized extrema alternating between `min` and `max` features while maintaining coverage.
+- CLI flag `--spec` selects the template (`product`, `ratio`, `absdiff`, `minmax`).
+- Reports: `docs/tier2_product.md` (`artifacts/20250921_135908/tier2_product/`), `docs/tier2_ratio.md` (`artifacts/20250921_140729/tier2_ratio/`), `docs/tier2_absdiff.md` (`artifacts/20250921_141419/tier2_absdiff/`), `docs/tier2_minmax.md` (`artifacts/20250921_143224/tier2_minmax/`).
 
 ## Near-term roadmap
 

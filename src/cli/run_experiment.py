@@ -89,7 +89,7 @@ def main() -> None:
         run_name = f"{args.tier}_k{tier1_cfg.k}"
     elif args.tier == "tier2":
         spec_arg = (args.spec or "product").lower()
-        supported_specs = {"product", "ratio"}
+        supported_specs = {"product", "ratio", "absdiff", "minmax"}
         if spec_arg not in supported_specs:
             raise ValueError(f"Unsupported Tier2 spec '{spec_arg}'. Supported: {sorted(supported_specs)}")
 
