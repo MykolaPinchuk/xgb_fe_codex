@@ -1,9 +1,9 @@
 # Tier 2.1 Report (Pairwise Products)
 
-**Run:** `artifacts/20250921_135908/tier2_product/`
+**Run:** `artifacts/20250921_194304/tier2_product/`
 
 ## Data & Feature Construction
-- Attribute generator matches earlier tiers (10,000 rows, 60 numeric columns, 24 informative candidates with 12 positive-only).
+- Attribute generator matches the upgraded Tier 0 backbone (10,000 rows, 60 numeric columns, 24 informative candidates drawn from correlated blocks with log-normal positive-only transforms and heavy-tailed distractors).
 - Feature equation: $z_m = x_{i_m} \cdot x_{j_m}$ with $(i_m, j_m)$ drawn from the informative pool and standardized to zero mean / unit variance. A coverage queue ensures every informative attribute appears in ≥1 product despite the pairwise restriction.
 - Logistic head uses coefficients drawn `Uniform(0.5, 1.5)` with random signs; intercept solved for a 10 % positive rate with Gaussian jitter (`σ=0.5`).
 
@@ -16,13 +16,13 @@
 
 | Arm        | PR-AUC | ROC-AUC | Logloss | Best Iteration | Fit Seconds |
 |------------|-------:|--------:|--------:|---------------:|------------:|
-| ATTR       | 0.6652 | 0.9263  | 0.1846  | 297            | 19.47       |
-| FE-Oracle  | 0.7329 | 0.9462  | 0.1599  | 311            | 14.25       |
+| ATTR       | 0.5159 | 0.8606  | 0.2408  | 105            | 1.32        |
+| FE-Oracle  | 0.6537 | 0.9125  | 0.1978  | 785            | 2.31        |
 
 ## Notes
-- FE-Oracle enjoys a sizeable PR-AUC advantage (≈0.068) over ATTR, highlighting the difficulty of reconstructing multiplicative structure from raw attributes with the same tree depth.
-- Attribute coverage metadata confirms all 24 informative attributes were used as either factor in at least one product.
-- Both arms still converge well under the `n_estimators` ceiling; Oracle’s best iteration slightly exceeds ATTR’s, reflecting the added complexity of the engineered features.
+- FE-Oracle now leads by ≈0.138 PR-AUC, underlining how multiplicative structure becomes significantly harder for ATTR once attribute scales and correlations diverge.
+- Coverage logs confirm every informative attribute appears in ≥1 product; diagnostics show informative variances spanning `0.49–30.7` with moderate inter-factor correlations.
+- ATTR typically stops near 100 trees while FE-Oracle pushes deeper (~785 trees) as it fits the standardized product features directly.
 
 ## Next
 - Extend Tier 2 to other pairwise templates (ratios, abs-diffs, mins/maxes) before moving up to Tier 3 multi-variate compositions.

@@ -21,4 +21,4 @@ See `IMPLEMENTATION.md` for the current scope and roadmap.
 
 ## Known Limitations
 
-- Current attribute generator uses iid draws with a positive-only subset. For Tier 2–4 this makes ratio-based oracle features nearly linear, so ATTR vs FE-Oracle gaps hover around 7–11 pp regardless of tier. Meta-Iteration 2 will upgrade the attribute backbone (correlated blocks, mixed scales) and rerun the experiments—see `docs/hand_off_notes.md` for details and next steps.
+- Correlated, mixed-scale attributes are now in place (blocks with ρ≈0.4, positive-only log-normal transforms, heavy-tailed distractors) and ratio tiers enforce mixed-scale denominators. Tier 0–4 have been rerun (see latest `artifacts/20250921_1941xx–1947xx/…` directories), but deeper-tree sweeps and alternative objectives remain open questions.

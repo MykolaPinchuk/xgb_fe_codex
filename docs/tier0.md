@@ -1,15 +1,15 @@
 # Tier 0 Report
 
-**Run:** `artifacts/20250921_131812/tier0/`
+**Run:** `artifacts/20250921_194128/tier0/`
 
 ## Data & Setup
 - Sample size: 10,000 rows, 60 numeric attributes.
-- Informative subset: 24 attributes, with 12 constrained positive (exp-transformed).
+- Informative subset: 24 attributes drawn from correlated Gaussian blocks (block size ≈6, ρ≈0.4) with heterogeneous scales; half of the pool is log-normalised to enforce positivity while keeping variance high. The remaining 36 columns mix lower-correlation blocks with heavy-tailed distractors.
 - Feature equation: $z_m = x_{i_m}$ (oracle reuses the selected raw columns) and the logit is $f = \sum_{m} \beta_m z_m$ before intercept calibration.
 - Target prevalence: 10% positives via intercept search (`σ=0.5` jitter).
 
-Selected columns: `['x4', 'x18', 'x23', 'x11', 'x5']`
-Weights: `[1.4128, -0.5033, -1.3622, 1.2760, -1.4181]`
+Selected columns: `['x3', 'x20', 'x19', 'x23', 'x9']`
+Weights: `[-1.0163, 0.7872, -0.5815, 1.0093, -1.1585]`
 
 ## Training Configuration
 - Optuna TPE, 15 trials per arm (budgeted inside a 300 s run cap; actual total ≈20 s).
@@ -21,12 +21,12 @@ Weights: `[1.4128, -0.5033, -1.3622, 1.2760, -1.4181]`
 
 | Arm        | PR-AUC | ROC-AUC | Logloss | Best Iteration | Fit Seconds |
 |------------|-------:|--------:|--------:|---------------:|------------:|
-| ATTR       | 0.4903 | 0.8636  | 0.2484  | 64             | 0.723       |
-| FE-Oracle  | 0.5074 | 0.8751  | 0.2375  | 290            | 0.647       |
+| ATTR       | 0.5280 | 0.8641  | 0.2383  | 147            | 1.41        |
+| FE-Oracle  | 0.5398 | 0.8741  | 0.2422  | 57             | 0.34        |
 
 ## Notes
-- Expected parity holds: FE-Oracle enjoys a slight edge because it focuses only on the contributory columns, while ATTR learns to up-weight the same signals from the 60-column space.
-- Best iteration for FE-Oracle ran longer (290 vs 64 rounds) despite higher PR-AUC; likely due to the smaller feature space requiring more trees to reach saturation—worth monitoring as tiers get richer.
+- FE-Oracle maintains a modest PR-AUC edge (~0.012) and converges in fewer trees now that the attribute space is richer but still linearly recoverable for Tier 0.
+- Attribute diagnostics confirm the correlated backbone: informative variances span `0.48–30.7` with mean absolute correlations around `0.08`, and positive-only columns show broadened spread (median variance ≈7.8).
 - No runtime issues; total experiment duration stayed well below the 5-minute ceiling.
 
 ## Next

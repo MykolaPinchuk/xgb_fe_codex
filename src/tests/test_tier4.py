@@ -41,6 +41,9 @@ def test_tier4_ratioofsum_k6():
         assert len(numerator) + len(denominator) == cfg.k
         assert all(weight != 0 for weight in numerator.values())
         assert all(weight > 0 for weight in denominator.values())
+        cv = feature_def.get("denominator_cv")
+        assert cv is not None
+        assert cv > 0.1
 
     assert all(count >= 1 for count in outputs.attribute_usage.values())
     assert abs(outputs.labels.mean() - cfg.positive_rate) < 0.02

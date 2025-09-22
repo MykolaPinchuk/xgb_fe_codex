@@ -23,8 +23,11 @@ class Tier4Config:
     spec: str = "ratioofsum"
     epsilon: float = 1e-3
     numerator_weight_pool: Sequence[float] = tuple(DEFAULT_NUMERATOR_POOL)
-    denominator_weight_pool: Sequence[float] = tuple(DEFAULT_DENOMINATOR_POOL)
+    denominator_weight_pool: Sequence[float] = (0.25, 0.5, 1.0, 2.0, 4.0)
     sum_weight_pool: Sequence[float] = tuple(DEFAULT_SUM_POOL)
+    positive_only_indices: List[int] | None = None
+    min_denominator_cv: float = 0.35
+    max_denominator_resamples: int = 5
 
 
 @dataclass
@@ -90,6 +93,7 @@ def _generate_ratio_of_sums(
     feature_defs: List[Dict[str, object]] = []
     attribute_usage: Dict[str, int] = {X.columns[idx]: 0 for idx in informative_indices}
     raw_features = np.zeros((n_rows, config.n_features), dtype=float)
+    positive_set = set(config.positive_only_indices or [])
 
     coverage_queue = informative_indices.copy()
     rng.shuffle(coverage_queue)
@@ -111,30 +115,59 @@ def _generate_ratio_of_sums(
         numerator_indices = select_group(numerator_size)
         chosen.extend(numerator_indices)
         denominator_indices = select_group(denominator_size)
+        if positive_set and denominator_size >= 2:
+            if not any(idx in positive_set for idx in denominator_indices):
+                replacement_candidates = [idx for idx in informative_indices if idx in positive_set and idx not in numerator_indices and idx not in denominator_indices]
+                if replacement_candidates:
+                    replace_idx = rng.integers(0, len(denominator_indices))
+                    denominator_indices[replace_idx] = int(rng.choice(replacement_candidates))
+        non_positive_candidates = [idx for idx in informative_indices if idx not in positive_set and idx not in numerator_indices and idx not in denominator_indices]
+        if non_positive_candidates and denominator_size >= 2:
+            if not any(idx not in positive_set for idx in denominator_indices):
+                replace_idx = rng.integers(0, len(denominator_indices))
+                denominator_indices[replace_idx] = int(rng.choice(non_positive_candidates))
         chosen.extend(denominator_indices)
 
         numerator_cols = [X.columns[idx] for idx in numerator_indices]
         denominator_cols = [X.columns[idx] for idx in denominator_indices]
 
         numerator_weights = _draw_weights(rng, config.numerator_weight_pool, size=len(numerator_indices))
-        denominator_weights = _draw_weights(rng, config.denominator_weight_pool, size=len(denominator_indices))
+
+        denom_resample_attempts = 0
+        denominator_weights = None
+        denom_vals = None
+        while denom_resample_attempts < config.max_denominator_resamples:
+            denominator_weights = _draw_weights(rng, config.denominator_weight_pool, size=len(denominator_indices))
+            scale_multipliers = rng.lognormal(mean=0.0, sigma=0.6, size=len(denominator_indices))
+            denominator_weights = denominator_weights * scale_multipliers
+
+            numerator_vals = (X.iloc[:, numerator_indices].to_numpy() * numerator_weights).sum(axis=1)
+            denominator_inputs = np.abs(X.iloc[:, denominator_indices].to_numpy())
+            denom_vals = (denominator_inputs * denominator_weights).sum(axis=1) + config.epsilon
+            mean = float(denom_vals.mean())
+            std = float(denom_vals.std(ddof=0))
+            cv = std / mean if mean > 0 else float("inf")
+            if cv >= config.min_denominator_cv or denom_resample_attempts == config.max_denominator_resamples - 1:
+                break
+            denom_resample_attempts += 1
 
         for col in numerator_cols:
             attribute_usage[col] = attribute_usage.get(col, 0) + 1
         for col in denominator_cols:
             attribute_usage[col] = attribute_usage.get(col, 0) + 1
 
-        numerator_vals = (X.iloc[:, numerator_indices].to_numpy() * numerator_weights).sum(axis=1)
-        denominator_inputs = np.abs(X.iloc[:, denominator_indices].to_numpy())
-        denominator_vals = (denominator_inputs * denominator_weights).sum(axis=1) + config.epsilon
-
-        raw_features[:, feat_idx] = numerator_vals / denominator_vals
+        raw_features[:, feat_idx] = numerator_vals / denom_vals
 
         feature_defs.append(
             {
                 "type": "ratioofsum",
                 "numerator": {col: float(w) for col, w in zip(numerator_cols, numerator_weights)},
                 "denominator": {col: float(w) for col, w in zip(denominator_cols, denominator_weights)},
+                "denominator_cv": float(
+                    float(np.std(denom_vals, ddof=0)) / float(np.mean(denom_vals))
+                    if np.mean(denom_vals) > 0
+                    else float("inf")
+                ),
             }
         )
 

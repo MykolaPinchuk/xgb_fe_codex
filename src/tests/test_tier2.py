@@ -60,6 +60,8 @@ def test_tier2_ratio_features():
     for feature_def in outputs.feature_defs:
         assert feature_def.get("type") == "ratio"
         assert "numerator" in feature_def and "denominator" in feature_def
+        assert feature_def.get("denominator_weight") is not None
+        assert feature_def["denominator_weight"] > 0
 
     attr_usage = outputs.attribute_usage
     assert all(count >= 1 for count in attr_usage.values())

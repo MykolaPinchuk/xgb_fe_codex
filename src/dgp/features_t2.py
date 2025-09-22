@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Sequence
 
 import numpy as np
 import pandas as pd
@@ -16,6 +16,7 @@ class Tier2Config:
     n_features: int
     spec: str = "product"
     positive_only_indices: List[int] | None = None
+    denominator_weight_pool: Sequence[float] = (0.25, 0.5, 1.0, 2.0, 4.0)
 
 
 @dataclass
@@ -261,6 +262,7 @@ def _generate_ratio_features(
     feature_defs: List[Dict[str, object]] = []
     attribute_usage: Dict[str, int] = {X.columns[idx]: 0 for idx in informative_indices}
     raw_features = np.zeros((n_rows, config.n_features), dtype=float)
+    variances = X.var(axis=0, ddof=0).to_numpy()
 
     coverage_queue = informative_indices.copy()
     rng.shuffle(coverage_queue)
@@ -276,9 +278,24 @@ def _generate_ratio_features(
         chosen.append(numerator)
 
         denom_candidate = _pop_unique(coverage_queue, chosen)
+        positive_set = set(config.positive_only_indices or [])
         if denom_candidate is None:
             denom_pool = [idx for idx in informative_indices if idx != numerator]
-            denom_candidate = int(rng.choice(denom_pool))
+            if positive_set:
+                pos_pool = [idx for idx in denom_pool if idx in positive_set]
+                if pos_pool:
+                    probs = variances[pos_pool]
+                    probs = probs / probs.sum() if probs.sum() > 0 else None
+                    denom_candidate = int(
+                        rng.choice(pos_pool, p=probs if probs is not None else None)
+                    )
+            if denom_candidate is None:
+                denom_pool = [idx for idx in denom_pool if idx not in positive_set] or denom_pool
+                probs = variances[denom_pool]
+                probs = probs / probs.sum() if probs.sum() > 0 else None
+                denom_candidate = int(
+                    rng.choice(denom_pool, p=probs if probs is not None else None)
+                )
         chosen.append(denom_candidate)
 
         num_idx = numerator
@@ -290,12 +307,20 @@ def _generate_ratio_features(
         denominator_vals = X.iloc[:, den_idx].to_numpy()
         if den_idx not in positive_set:
             denominator_vals = np.abs(denominator_vals)
-        denominator_vals = denominator_vals + eps
+        weight = float(rng.choice(config.denominator_weight_pool))
+        denominator_vals = denominator_vals * weight + eps
 
         vals = numerator_vals / denominator_vals
         raw_features[:, feat_idx] = vals
 
-        feature_defs.append({"type": "ratio", "numerator": num_col, "denominator": den_col})
+        feature_defs.append(
+            {
+                "type": "ratio",
+                "numerator": num_col,
+                "denominator": den_col,
+                "denominator_weight": weight,
+            }
+        )
         attribute_usage[num_col] = attribute_usage.get(num_col, 0) + 1
         attribute_usage[den_col] = attribute_usage.get(den_col, 0) + 1
 

@@ -7,10 +7,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import numpy as np
 import pandas as pd
 import yaml
 
-from dgp.attributes import AttributeSpec, generate_attributes
+from dgp.attributes import AttributeMetadata, AttributeSpec, generate_attributes
 from dgp.features_tier0 import Tier0Config, generate_tier0
 from dgp.features_t1 import Tier1Config, generate_tier1
 from dgp.features_t2 import Tier2Config, generate_tier2
@@ -18,6 +19,137 @@ from dgp.features_t3 import Tier3Config, generate_tier3
 from dgp.features_t4 import Tier4Config, generate_tier4
 from train.run_arm import ArmConfig, run_training_arm
 from train.split import SplitConfig, stratified_split
+
+
+def _attribute_diagnostics(X: pd.DataFrame, metadata: AttributeMetadata) -> Dict[str, Dict[str, float]]:
+    variances = X.var(axis=0, ddof=0)
+    diag: Dict[str, Dict[str, float]] = {
+        "variance": {
+            "min": float(variances.min()),
+            "median": float(variances.median()),
+            "max": float(variances.max()),
+        }
+    }
+
+    informative_cols = [X.columns[i] for i in metadata.informative_indices]
+    if len(informative_cols) > 1:
+        corr = X[informative_cols].corr().to_numpy()
+        mask = ~np.eye(len(informative_cols), dtype=bool)
+        abs_corr = np.abs(corr[mask])
+        diag["informative_abs_corr"] = {
+            "mean": float(abs_corr.mean()),
+            "max": float(abs_corr.max()),
+        }
+
+    if metadata.positive_only_indices:
+        pos_cols = [X.columns[i] for i in metadata.positive_only_indices]
+        pos_subset = X[pos_cols]
+        pos_variances = pos_subset.var(axis=0, ddof=0)
+        diag["positive_only"] = {
+            "variance_min": float(pos_variances.min()),
+            "variance_median": float(pos_variances.median()),
+            "variance_max": float(pos_variances.max()),
+            "mean": float(pos_subset.mean().mean()),
+        }
+
+    return diag
+
+
+def _tier2_ratio_diagnostics(
+    X: pd.DataFrame,
+    feature_defs: List[Dict[str, object]],
+    metadata: AttributeMetadata,
+) -> Dict[str, object]:
+    positive_set = {X.columns[i] for i in metadata.positive_only_indices}
+    epsilon = 1e-3
+    stats: List[Dict[str, float]] = []
+    for feature_idx, definition in enumerate(feature_defs):
+        if definition.get("type") != "ratio":
+            continue
+        denominator_col = definition.get("denominator")
+        if denominator_col is None:
+            continue
+        denom_vals = X[denominator_col].to_numpy()
+        if denominator_col not in positive_set:
+            denom_vals = np.abs(denom_vals)
+        denom_vals = denom_vals + epsilon
+        stats.append(
+            {
+                "feature": f"z{feature_idx}",
+                "min": float(denom_vals.min()),
+                "median": float(np.median(denom_vals)),
+                "std": float(denom_vals.std()),
+                "p01": float(np.quantile(denom_vals, 0.01)),
+                "p99": float(np.quantile(denom_vals, 0.99)),
+            }
+        )
+
+    if not stats:
+        return {}
+
+    return {
+        "ratio_denominators": stats,
+    }
+
+
+def _ratio_of_sums_diagnostics(
+    X: pd.DataFrame,
+    feature_defs: List[Dict[str, object]],
+    epsilon: float,
+) -> Dict[str, object]:
+    stats: List[Dict[str, float]] = []
+    for feature_idx, definition in enumerate(feature_defs):
+        if definition.get("type") != "ratioofsum":
+            continue
+        denominator = definition.get("denominator", {})
+        if not denominator:
+            continue
+        denom_vals = np.zeros(X.shape[0], dtype=float)
+        for col, weight in denominator.items():
+            denom_vals += np.abs(X[col].to_numpy()) * float(weight)
+        denom_vals = denom_vals + float(epsilon)
+        stats.append(
+            {
+                "feature": f"z{feature_idx}",
+                "min": float(denom_vals.min()),
+                "median": float(np.median(denom_vals)),
+                "std": float(denom_vals.std()),
+                "p01": float(np.quantile(denom_vals, 0.01)),
+                "p99": float(np.quantile(denom_vals, 0.99)),
+            }
+        )
+
+    if not stats:
+        return {}
+
+    return {
+        "ratioofsum_denominators": stats,
+    }
+
+
+def collect_diagnostics(
+    tier: str,
+    tier_details: Dict[str, object],
+    tier_outputs,
+    X: pd.DataFrame,
+    metadata: AttributeMetadata,
+) -> Dict[str, object]:
+    diagnostics: Dict[str, object] = {
+        "attributes": _attribute_diagnostics(X, metadata)
+    }
+
+    feature_defs: List[Dict[str, object]] = tier_outputs.feature_defs if hasattr(tier_outputs, "feature_defs") else []
+
+    if tier == "tier2" and tier_details.get("spec") == "ratio":
+        diagnostics["tier_specific"] = _tier2_ratio_diagnostics(X, feature_defs, metadata)
+    elif tier == "tier3" and tier_details.get("spec") == "ratioofsum":
+        epsilon = tier_details.get("epsilon", 1e-3)
+        diagnostics["tier_specific"] = _ratio_of_sums_diagnostics(X, feature_defs, epsilon)
+    elif tier == "tier4" and tier_details.get("spec") == "ratioofsum":
+        epsilon = tier_details.get("epsilon", 1e-3)
+        diagnostics["tier_specific"] = _ratio_of_sums_diagnostics(X, feature_defs, epsilon)
+
+    return diagnostics
 
 
 def load_config(config_path: Path) -> Dict[str, object]:
@@ -49,12 +181,15 @@ def main() -> None:
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    attr_spec = AttributeSpec(
-        n_rows=int(config.get("n_rows", 10000)),
-        n_attrs=int(config.get("n_attrs", 60)),
-        n_informative=int(config.get("n_informative", 24)),
-        seed=seed,
-    )
+    attribute_cfg = config.get("attribute", {}) or {}
+    attr_spec_kwargs = {
+        "n_rows": int(config.get("n_rows", 10000)),
+        "n_attrs": int(config.get("n_attrs", 60)),
+        "n_informative": int(config.get("n_informative", 24)),
+        "seed": seed,
+    }
+    attr_spec_kwargs.update(attribute_cfg)
+    attr_spec = AttributeSpec(**attr_spec_kwargs)
     X, metadata, rng = generate_attributes(attr_spec)
 
     positive_rate = float(config.get("positive_rate", 0.1))
@@ -139,6 +274,7 @@ def main() -> None:
             k=int(k_value),
             n_features=n_features,
             spec=spec_arg,
+            positive_only_indices=metadata.positive_only_indices,
         )
         tier_outputs = generate_tier3(X, metadata.informative_indices, tier3_cfg, rng)
         oracle_features = tier_outputs.features
@@ -150,6 +286,7 @@ def main() -> None:
             "betas": tier_outputs.betas,
             "intercept": tier_outputs.intercept,
             "attribute_usage": {k: int(v) for k, v in tier_outputs.attribute_usage.items()},
+            "epsilon": tier3_cfg.epsilon,
         }
         run_name = f"{args.tier}_{spec_arg}_k{tier3_cfg.k}"
     elif args.tier == "tier4":
@@ -170,6 +307,7 @@ def main() -> None:
             k=int(k_value),
             n_features=n_features,
             spec=spec_arg,
+            positive_only_indices=metadata.positive_only_indices,
         )
         tier_outputs = generate_tier4(X, metadata.informative_indices, tier4_cfg, rng)
         oracle_features = tier_outputs.features
@@ -181,6 +319,7 @@ def main() -> None:
             "betas": tier_outputs.betas,
             "intercept": tier_outputs.intercept,
             "attribute_usage": {k: int(v) for k, v in tier_outputs.attribute_usage.items()},
+            "epsilon": tier4_cfg.epsilon,
         }
         run_name = f"{args.tier}_{spec_arg}_k{tier4_cfg.k}"
     else:
@@ -188,6 +327,9 @@ def main() -> None:
 
     run_dir = Path("artifacts") / timestamp / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    diagnostics = collect_diagnostics(args.tier, tier_details, tier_outputs, X, metadata)
+    (run_dir / "diagnostics.json").write_text(json.dumps(diagnostics, indent=2))
 
     y = tier_outputs.labels
     y.index = X.index

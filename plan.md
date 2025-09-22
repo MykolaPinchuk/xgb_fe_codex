@@ -82,10 +82,9 @@ Each run produces two arms (ATTR, FE-Oracle) and writes metrics + params to `art
 ## 3) Data generation (attributes)
 
 - Total attributes: `d = 60`.
-- 24 informative-eligible attributes (pool used by true features):
-  - (Meta-Iteration 1 implementation) iid Gaussian draws with half of the informative set exponentiated to enforce positivity.
-  - (Deferred to Meta-Iteration 2) correlated Gaussian blocks (e.g., block size 6 with intra-block ρ≈0.4) and mixed scales.
+- 24 informative-eligible attributes (pool used by true features): correlated Gaussian blocks (default block size = 6, intra-block ρ≈0.4) with per-column scale multipliers to induce mixed spreads. Half of the informative set is log-normalised to keep them positive-only without collapsing variance. Ratio tiers enforce mixed-scale denominators (wider weight pools + CV guardrails) to avoid near-constant denominators at high arity.
 - 36 distractor attributes: independent Gaussian / mild heavy-tail mix.
+  - Distractors now combine lower-correlation Gaussian blocks with a fraction of heavy-tailed (Student-t) columns to add nuisance structure.
 
 Return `X` as a `pandas.DataFrame` with columns `x0..x59` and a metadata structure indicating which indices are positive-only.
 
@@ -190,7 +189,7 @@ Directory layout: `artifacts/<YYYYmmdd_HHMMSS>/<tier>_<spec>_k<k>/`
 3. Implement Tier 3 (k=3 and k=4 variants) → tests, then full runs.
 4. Implement Tier 4 (k=5 and k=6 variants) → tests, then full runs.
 5. Add a simple summary script to aggregate `metrics_*.json` and print a comparison table (ATTR vs FE-Oracle by subtier).
-6. **Meta-Iteration 2 kickoff:** upgrade the attribute generator (correlated blocks, mixed scales) before rerunning Tier 2–4. See `docs/hand_off_notes.md` for context and open questions.
+6. **Post-upgrade sweep:** rerun Tier 0–4 with the correlated/mixed-scale attribute generator before capturing any summary metrics. See `docs/hand_off_notes.md` for context and open questions.
 
 ## 11) Notes & small gotchas
 
@@ -199,6 +198,7 @@ Directory layout: `artifacts/<YYYYmmdd_HHMMSS>/<tier>_<spec>_k<k>/`
 - For k=5–6 features (Tier 4), keep `N=15` default. If training looks noisy, consider `σ=0.4` or narrower `β` ranges (config-gated) to stabilize.
 - We want toietratie rapidly. use all threads for model training. Makse sure that no training run (including hpo and evth else) exceeds 5 minutes. use timeouts if needed to enfornce it.
 - do not overnegineer.
+- do not read files referred to in .codexignore unless you are sure you really need them and know exactly what for.
 
 ### After Meta-Iteration 1 (preview)
 

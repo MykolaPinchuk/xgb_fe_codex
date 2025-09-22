@@ -1,9 +1,9 @@
 # Tier 1 Report (Oblique Linear, k=3)
 
-**Run:** `artifacts/20250921_133826/tier1_k3/`
+**Run:** `artifacts/20250921_194152/tier1_k3/`
 
 ## Data & Feature Construction
-- Same attribute backbone as Tier 0 (10,000 rows by default; run sampled at full scale).
+- Same correlated/mixed-scale attribute backbone as Tier 0 (10,000 rows by default; run sampled at full scale).
 - Informative pool: 24 attributes, evenly reused via coverage pass (no unused informative columns in this run).
 - Feature equation: $z_m = \sum_{j=1}^{3} w_{m,j} \cdot x_{i_{m,j}}$ with $w_{m,j} \in \{-2, -1, -0.5, 0.5, 1, 2\}$, standardized to zero mean / unit variance.
 - Logistic layer: coefficients sampled `Uniform(0.5, 1.5)` with random signs, intercept solved to yield 10 % positives.
@@ -17,13 +17,13 @@
 
 | Arm        | PR-AUC | ROC-AUC | Logloss | Best Iteration | Fit Seconds |
 |------------|-------:|--------:|--------:|---------------:|------------:|
-| ATTR       | 0.7006 | 0.9437  | 0.1692  | 329            | 1.94        |
-| FE-Oracle  | 0.7140 | 0.9528  | 0.1560  | 486            | 2.26        |
+| ATTR       | 0.5675 | 0.8949  | 0.2134  | 433            | 2.60        |
+| FE-Oracle  | 0.5993 | 0.8970  | 0.2090  | 200            | 1.09        |
 
 ## Notes
-- FE-Oracle widens the PR-AUC gap (~0.013) relative to Tier 0, reflecting the benefit of direct access to the linear blends instead of recovering them from the 60-attr space.
-- Coverage metadata confirms all 24 informative attributes fed at least one feature.
-- Early stopping still triggers well below the `n_estimators` ceiling (≤500 trees), keeping each trial fast enough for the 5-minute global constraint.
+- FE-Oracle now leads by ≈0.032 PR-AUC while converging in less than half the trees, showing how oblique blends become harder to emulate once attribute scales and correlations vary.
+- Coverage metadata confirms all 24 informative attributes fed at least one feature; attribute diagnostics report informative variances between `0.49` and `30.7` with mean absolute correlations around `0.08`.
+- Early stopping continues to fire well before the `n_estimators` cap, keeping Optuna trials within the 5-minute global window.
 
 ## Next
 - Implement Tier 2 feature constructors (pairwise compositional templates) and capture analogous reports once validated.
