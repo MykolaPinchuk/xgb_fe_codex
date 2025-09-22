@@ -1,0 +1,15 @@
+# Paths the coding agent should skip scanning by default to conserve context.
+
+# Generated experiment outputs (large JSON/log bundles)
+artifacts/
+
+# Local environments and caches rarely needed for reasoning
+.venv/
+.env/
+.pytest_cache/
+__pycache__/
+
+# IDE/editor detritus
+.vscode/
+.idea/
+*.swp

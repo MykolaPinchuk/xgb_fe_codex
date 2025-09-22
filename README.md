@@ -18,3 +18,7 @@ python -m cli.summarize_runs --root artifacts --latest-only
 ```
 
 See `IMPLEMENTATION.md` for the current scope and roadmap.
+
+## Known Limitations
+
+- Current attribute generator uses iid draws with a positive-only subset. For Tier 2–4 this makes ratio-based oracle features nearly linear, so ATTR vs FE-Oracle gaps hover around 7–11 pp regardless of tier. Meta-Iteration 2 will upgrade the attribute backbone (correlated blocks, mixed scales) and rerun the experiments—see `docs/hand_off_notes.md` for details and next steps.

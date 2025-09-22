@@ -190,6 +190,7 @@ Directory layout: `artifacts/<YYYYmmdd_HHMMSS>/<tier>_<spec>_k<k>/`
 3. Implement Tier 3 (k=3 and k=4 variants) → tests, then full runs.
 4. Implement Tier 4 (k=5 and k=6 variants) → tests, then full runs.
 5. Add a simple summary script to aggregate `metrics_*.json` and print a comparison table (ATTR vs FE-Oracle by subtier).
+6. **Meta-Iteration 2 kickoff:** upgrade the attribute generator (correlated blocks, mixed scales) before rerunning Tier 2–4. See `docs/hand_off_notes.md` for context and open questions.
 
 ## 11) Notes & small gotchas
 
